@@ -21,26 +21,51 @@ instalacao_basica() {
     git config --global init.defaultBranch main
 
     # Detecta ambiente gráfico
-    AMBIENTE=$(echo $XDG_CURRENT_DESKTOP | tr '[:upper:]' '[:lower:]')
+    AMBIENTE=$(echo "$XDG_CURRENT_DESKTOP" | tr '[:upper:]' '[:lower:]')
 
     if [[ "$AMBIENTE" == *"kde"* ]]; then
-        echo "🖥️ Ambiente KDE detectado. Instalando ZSH e Oh My Zsh..."
-        sudo pacman -S --noconfirm zsh
+        echo "🖥️ Ambiente KDE detectado. Instalando ZSH com Powerlevel10k (sem Oh My Zsh)..."
+        sudo pacman -S --noconfirm zsh zsh-completions
 
+        # Troca shell padrão para zsh
         if [ "$SHELL" != "/bin/zsh" ]; then
             chsh -s /bin/zsh
         fi
 
-        if [ ! -d "$HOME/.oh-my-zsh" ]; then
-            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-            echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
-            zsh
-        else
-            echo "ℹ️ Oh My Zsh já está instalado."
+        # Instala Powerlevel10k
+        if [ ! -d "$HOME/.zsh/powerlevel10k" ]; then
+            git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/.zsh/powerlevel10k
         fi
 
+        # Cria .zshrc simples com Powerlevel10k
+        if [ ! -f "$HOME/.zshrc" ]; then
+            cat << 'EOF' > ~/.zshrc
+# Tema Powerlevel10k
+source ~/.zsh/powerlevel10k/powerlevel10k.zsh-theme
+
+# Histórico
+HISTSIZE=10000
+SAVEHIST=10000
+HISTFILE=~/.zsh_history
+
+# Atalhos
+alias ll='ls -la'
+alias gs='git status'
+
+# Inicialização
+autoload -Uz compinit promptinit
+compinit
+promptinit
+
+# Usa o tema
+prompt powerlevel10k
+EOF
+        fi
+
+        echo "✅ ZSH com Powerlevel10k instalado e configurado."
+        echo "ℹ️ Rode 'p10k configure' para personalizar o tema depois, se desejar."
     else
-        echo "🖥️ Ambiente GNOME detectado. Pulando instalação do ZSH e Oh My Zsh."
+        echo "🖥️ Ambiente GNOME detectado. Pulando instalação de ZSH/Powerlevel10k."
     fi
 
     echo "[2/12] Instalando Brave Browser (via AUR)..."
@@ -59,7 +84,6 @@ instalacao_basica() {
     echo "[4/12] Instalando VS Code (via repositório oficial)..."
     sudo pacman -S --noconfirm code
 }
-
 
 # Função 2: Desenvolvimento e apps
 instalacao_desenvolvimento() {
