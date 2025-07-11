@@ -113,16 +113,16 @@ instalacao_desenvolvimento() {
 
     echo "[10/12] Configurando virtualenvwrapper no .zshrc..."
     VENV_CONFIG="
-# Virtualenvwrapper config
-export WORKON_HOME=\$HOME/.virtualenvs
-export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
-source \$HOME/.local/bin/virtualenvwrapper.sh
-"
+    # Virtualenvwrapper config
+    export WORKON_HOME=\$HOME/.virtualenvs
+    export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
+    source /usr/bin/virtualenvwrapper.sh
+    "
     if ! grep -q "virtualenvwrapper.sh" ~/.zshrc; then
         echo "$VENV_CONFIG" >> ~/.zshrc
         echo "✅ virtualenvwrapper configurado no ~/.zshrc"
     else
-        echo "ℹ️ virtualenvwrapper já configurado no ~/.zshrc"
+        echo "ℹ️ virtualenvwrapper já está configurado no ~/.zshrc"
     fi
 
     echo "[11/12] Instalando Flatpak e apps..."
