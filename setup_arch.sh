@@ -109,7 +109,7 @@ instalacao_desenvolvimento() {
     nvm install --lts
 
     echo "[9/12] Instalando virtualenvwrapper via pip..."
-    pip install --user virtualenvwrapper
+    yay -S --noconfirm python-virtualenvwrapper
 
     echo "[10/12] Configurando virtualenvwrapper no .zshrc..."
     VENV_CONFIG="
