@@ -14,11 +14,34 @@ instalacao_basica() {
     sudo pacman -Syu --noconfirm
 
     echo "[1/12] Instalando pacotes base..."
-    sudo pacman -S --noconfirm zsh git wget curl python-pip base-devel
+    sudo pacman -S --noconfirm git wget curl python-pip base-devel
 
     git config --global user.name "Paulo Roberto Menezes"
     git config --global user.email paulomenezes.web@gmail.com
     git config --global init.defaultBranch main
+
+    # Detecta ambiente gráfico
+    AMBIENTE=$(echo $XDG_CURRENT_DESKTOP | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$AMBIENTE" == *"kde"* ]]; then
+        echo "🖥️ Ambiente KDE detectado. Instalando ZSH e Oh My Zsh..."
+        sudo pacman -S --noconfirm zsh
+
+        if [ "$SHELL" != "/bin/zsh" ]; then
+            chsh -s /bin/zsh
+        fi
+
+        if [ ! -d "$HOME/.oh-my-zsh" ]; then
+            sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+            echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
+            zsh
+        else
+            echo "ℹ️ Oh My Zsh já está instalado."
+        fi
+
+    else
+        echo "🖥️ Ambiente GNOME detectado. Pulando instalação do ZSH e Oh My Zsh."
+    fi
 
     echo "[2/12] Instalando Brave Browser (via AUR)..."
     if ! command -v yay >/dev/null 2>&1; then
@@ -35,19 +58,8 @@ instalacao_basica() {
 
     echo "[4/12] Instalando VS Code (via repositório oficial)..."
     sudo pacman -S --noconfirm code
-
-    echo "[5/12] Instalando Oh My Zsh..."
-    if [ "$SHELL" != "/bin/zsh" ]; then
-        chsh -s /bin/zsh
-    fi
-    if [ ! -d "$HOME/.oh-my-zsh" ]; then
-        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-        echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
-        zsh
-    else
-        echo "Oh My Zsh já está instalado."
-    fi
 }
+
 
 # Função 2: Desenvolvimento e apps
 instalacao_desenvolvimento() {
