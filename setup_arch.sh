@@ -126,7 +126,7 @@ instalacao_desenvolvimento() {
     fi
 
     echo "[11/12] Instalando Flatpak e apps..."
-    sudo pacman -S --noconfirm flatpak gnome-tweaks gnome-extensions-app
+    sudo pacman -S --noconfirm flatpak gnome-tweaks gnome-shell-extensions gnome-browser-connector
     sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
     echo "[12/12] Instalando apps via Flatpak..."
