@@ -2,127 +2,275 @@
 
 set -e
 
-# Verifica se é Ubuntu ou Mint
-if ! grep -qiE 'ubuntu|linuxmint' /etc/os-release; then
-    echo "🚫 Este script é exclusivo para Ubuntu ou Linux Mint."
+# Verifica se é Ubuntu/Mint
+if ! grep -qi "ubuntu\|mint" /etc/os-release; then
+    echo "🚫 Este script é exclusivo para Ubuntu/Linux Mint."
     exit 1
 fi
 
-echo "[0/12] Atualizando sistema..."
-sudo apt update && sudo apt upgrade -y
+# Funções de instalação individuais
+atualizar_sistema() {
+    echo "🔄 Atualizando sistema..."
+    sudo apt update && sudo apt upgrade -y
+    echo "✅ Sistema atualizado!"
+}
 
-echo "[1/12] Instalando pacotes base..."
-sudo apt install -y zsh git curl wget python3-pip flatpak gnome-software-plugin-flatpak ca-certificates gnupg lsb-release apt-transport-https
-git config --global user.name "Paulo Roberto Menezes"
-git config --global user.email paulomenezes.web@gmail.com
-git config --global init.defaultBranch main
+instalar_pacotes_base() {
+    echo "📦 Instalando pacotes base (git, wget, curl, etc)..."
+    sudo apt install -y zsh git wget curl python3-pip software-properties-common
+    git config --global user.name "Paulo Roberto Menezes"
+    git config --global user.email paulomenezes.web@gmail.com
+    git config --global init.defaultBranch main
+    echo "✅ Pacotes base instalados!"
+}
 
-echo "Instalando Brave Browser"
-curl -fsS https://dl.brave.com/install.sh | sh
+instalar_brave() {
+    echo "🦁 Instalando Brave Browser..."
+    sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
+    sudo apt update
+    sudo apt install -y brave-browser
+    echo "✅ Brave instalado!"
+}
 
-echo "[2/12] Instalando Google Chrome..."
-wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo apt install -y /tmp/google-chrome.deb
+instalar_chrome() {
+    echo "🌐 Instalando Google Chrome..."
+    wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    sudo dpkg -i google-chrome-stable_current_amd64.deb
+    sudo apt --fix-broken install -y
+    echo "✅ Chrome instalado!"
+}
 
-echo "[3/12] Instalando VS Code..."
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/microsoft.gpg > /dev/null
-sudo sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
-sudo apt update
-sudo apt install -y code
+instalar_vscode() {
+    echo "💻 Instalando VS Code..."
+    sudo apt-get install -y wget gpg
+    wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
+    sudo install -o root -g root -m 644 packages.microsoft.gpg /usr/share/keyrings/
+    sudo sh -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
+    sudo apt update
+    sudo apt install -y code
+    echo "✅ VS Code instalado!"
+}
 
-echo "[4/12] Instalando Oh My Zsh..."
-if [ "$SHELL" != "/usr/bin/zsh" ]; then
-    chsh -s /usr/bin/zsh
-fi
-if [ ! -d "$HOME/.oh-my-zsh" ]; then
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-else
-    echo "Oh My Zsh já instalado."
-fi
+instalar_ohmyzsh() {
+    echo "🐚 Instalando Oh My Zsh..."
+    if [ "$SHELL" != "/bin/zsh" ]; then
+        chsh -s /bin/zsh
+    fi
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+        echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
+    else
+        echo "ℹ️ Oh My Zsh já está instalado."
+    fi
+    echo "✅ Oh My Zsh configurado!"
+}
 
-echo "[5/12] Instalando Docker (modo Ubuntu/Mint)..."
-sudo apt remove -y docker docker-engine docker.io containerd runc || true
-sudo apt install -y ca-certificates curl gnupg
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-  https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+instalar_docker() {
+    echo "🐳 Instalando Docker..."
+    sudo apt install -y ca-certificates curl gnupg
+    sudo install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+    sudo apt update
+    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo usermod -aG docker "$USER"
+    echo "⚠️ Adicionado '$USER' ao grupo docker. Reinicie a sessão para aplicar."
+    echo "✅ Docker instalado!"
+}
 
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+instalar_java() {
+    echo "☕ Instalando SDKMAN e Java 21 Azul Zulu..."
+    if [ ! -d "$HOME/.sdkman" ]; then
+        curl -s "https://get.sdkman.io" | bash
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+    else
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+    fi
+    sdk install java 21.0.6-zulu
+    echo "✅ Java instalado via SDKMAN!"
+}
 
-sudo systemctl enable docker
-sudo systemctl start docker
-sudo usermod -aG docker "$USER"
-echo "⚠️ Adicionado '$USER' ao grupo docker. Reinicie a sessão para aplicar."
+instalar_node() {
+    echo "🟢 Instalando NVM e Node.js LTS..."
+    if [ ! -d "$HOME/.nvm" ]; then
+        curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+    fi
+    export NVM_DIR="$HOME/.nvm"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+    nvm install --lts
+    echo "✅ Node.js instalado via NVM!"
+}
 
-echo "[6/12] Instalando SDKMAN e Java 21 Azul Zulu..."
-if [ ! -d "$HOME/.sdkman" ]; then
-    curl -s "https://get.sdkman.io" | bash
-fi
-source "$HOME/.sdkman/bin/sdkman-init.sh"
-sdk install java 21.0.0-zulu
-
-echo "[7/12] Instalando NVM e Node.js LTS..."
-if [ ! -d "$HOME/.nvm" ]; then
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
-fi
-export NVM_DIR="$HOME/.nvm"
-source "$NVM_DIR/nvm.sh"
-nvm install --lts
-
-echo "[8/12] Instalando virtualenvwrapper via pip..."
-pip3 install --user virtualenvwrapper
-
-echo "[9/12] Configurando virtualenvwrapper no ~/.zshrc..."
-VENV_CONFIG="
+instalar_virtualenvwrapper() {
+    echo "🐍 Instalando virtualenvwrapper..."
+    pip3 install --user virtualenvwrapper
+    
+    echo "📝 Configurando virtualenvwrapper no .zshrc..."
+    VENV_CONFIG="
 # Virtualenvwrapper config
 export WORKON_HOME=\$HOME/.virtualenvs
 export VIRTUALENVWRAPPER_PYTHON=/usr/bin/python3
 source \$HOME/.local/bin/virtualenvwrapper.sh
 "
+    if ! grep -q "virtualenvwrapper.sh" ~/.zshrc; then
+        echo "$VENV_CONFIG" >> ~/.zshrc
+    fi
+    echo "✅ virtualenvwrapper instalado e configurado!"
+}
 
-if ! grep -q "virtualenvwrapper.sh" ~/.zshrc; then
-    echo "$VENV_CONFIG" >> ~/.zshrc
-    echo "✅ virtualenvwrapper configurado no ~/.zshrc"
-else
-    echo "ℹ️ virtualenvwrapper já configurado no ~/.zshrc"
+instalar_flatpak_apps() {
+    echo "📦 Instalando Flatpak e repositório Flathub..."
+    sudo apt install -y flatpak
+    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    # Lista de aplicativos Flatpak
+    local apps=(
+        "io.github.getnf.embellish"
+        "com.rtosta.zapzap"
+        "com.obsproject.Studio"
+        "org.duckstation.DuckStation"
+        "org.ppsspp.PPSSPP"
+        "com.heroicgameslauncher.hgl"
+        "net.lutris.Lutris"
+        "net.pcsx2.PCSX2"
+        "com.discordapp.Discord"
+        "org.telegram.desktop"
+        "com.getpostman.Postman"
+        "io.dbeaver.DBeaverCommunity"
+        "org.gnome.meld"
+        "io.httpie.Httpie"
+    )
+
+    echo "🔄 Instalando apps via Flatpak (um por um)..."
+    for app in "${apps[@]}"; do
+        echo -e "\n🔍 Instalando $app..."
+        if flatpak install -y flathub "$app"; then
+            echo "✅ $app instalado com sucesso!"
+        else
+            echo "⚠️ Falha ao instalar $app"
+        fi
+    done
+
+    echo -e "\n✅ Todos os apps Flatpak foram processados!"
+}
+
+instalar_gnome_tweaks() {
+    echo "🎨 Instalando GNOME Tweaks..."
+    sudo apt install -y gnome-tweaks gnome-shell-extensions
+    echo "✅ GNOME Tweaks instalado!"
+}
+
+configurar_powerlevel10k() {
+    echo "🎨 Configurando Powerlevel10k (estilo Manjaro)..."
+    
+    # Instala o Powerlevel10k (via Oh My Zsh)
+    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    fi
+
+    # Define o tema no .zshrc
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+
+    # Configuração automática (sem wizard)
+    cat > ~/.p10k.zsh << 'EOL'
+# Config pré-definida (estilo Manjaro simplificado)
+if [[ -o interactive ]]; then
+    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
+
+    # Prompt style (Rainbow = similar ao Manjaro)
+    typeset -g POWERLEVEL9K_MODE=nerdfont-complete
+    typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+    typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs)
+    typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status time)
+    typeset -g POWERLEVEL9K_COLOR_SCHEME=dark
+    typeset -g POWERLEVEL9K_DIR_FOREGROUND=15
+    typeset -g POWERLEVEL9K_VCS_MODIFIED_BACKGROUND=red
+    typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=yellow
+    typeset -g POWERLEVEL9K_TIME_FORMAT="%D{%H:%M}"
 fi
+EOL
 
-echo "[10/12] Configurando Flathub..."
-sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-echo "Instalando extensões adicionais do gnome"
-sudo apt install gnome-tweaks
-sudo apt install gnome-extensions-app
-sudo apt install chrome-gnome-shell
+    # Baixa e instala a fonte Meslo Nerd Font
+    echo "📖 Instalando Meslo Nerd Font..."
+    mkdir -p ~/.local/share/fonts
+    cd ~/.local/share/fonts
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
+    fc-cache -f -v > /dev/null
 
-echo "[11/12] Instalando apps via Flatpak..."
-flatpak install -y flathub \
-  io.github.getnf.embellish \
-  com.rtosta.zapzap \
-  com.obsproject.Studio \
-  org.duckstation.DuckStation \
-  org.ppsspp.PPSSPP \
-  com.heroicgameslauncher.hgl \
-  net.lutris.Lutris \
-  net.pcsx2.PCSX2 \
-  com.discordapp.Discord \
-  org.telegram.desktop \
-  com.getpostman.Postman \
-  io.dbeaver.DBeaverCommunity \
-  org.gnome.meld \
-  io.httpie.Httpie
+    echo "✅ Powerlevel10k configurado! Reinicie o terminal."
+}
 
-echo "[12/12] Instalando JetBrains Toolbox..."
-TOOLBOX_TMP="/tmp/jetbrains-toolbox.tar.gz"
-TOOLBOX_DIR="/opt/jetbrains-toolbox"
-wget -qO "$TOOLBOX_TMP" https://data.services.jetbrains.com/products/download?code=TBA&platform=linux
-sudo mkdir -p "$TOOLBOX_DIR"
-sudo tar -xzf "$TOOLBOX_TMP" -C "$TOOLBOX_DIR" --strip-components=1
-"$TOOLBOX_DIR/jetbrains-toolbox" &
+# Menu interativo completo
+while true; do
+    clear
+    echo -e "\n===== MENU DE INSTALAÇÃO (UBUNTU/MINT) ====="
+    echo "1) Atualizar sistema"
+    echo "2) Instalar pacotes base (git, wget, curl, etc)"
+    echo "3) Instalar navegadores"
+    echo "4) Instalar VS Code"
+    echo "5) Instalar Oh My Zsh"
+    echo "6) Instalar Docker"
+    echo "7) Instalar Java (via SDKMAN)"
+    echo "8) Instalar Node.js (via NVM)"
+    echo "9) Instalar Python virtualenvwrapper"
+    echo "10) Instalar Flatpak e apps"
+    echo "11) Instalar GNOME Tweaks"
+    echo "12) Configurar Powerlevel10k (estilo Manjaro automático)"
+    echo "13) Instalar TUDO (executa todas as opções acima)"
+    echo "0) Sair"
+    echo "--------------------------------------"
+    read -rp "Escolha uma opção (0-13): " opcao
 
-echo "✅ Pós-instalação concluída com sucesso!"
-echo "🔁 Reinicie sua sessão para aplicar ZSH, Docker e virtualenvwrapper."
-echo "💡 Use o JetBrains Toolbox para instalar PyCharm e IntelliJ IDEA."
+    case $opcao in
+        1) atualizar_sistema ;;
+        2) instalar_pacotes_base ;;
+        3) 
+            echo -e "\n--- NAVEGADORES ---"
+            echo "1) Brave Browser"
+            echo "2) Google Chrome"
+            echo "3) Ambos"
+            read -rp "Escolha (1-3): " nav_opcao
+            case $nav_opcao in
+                1) instalar_brave ;;
+                2) instalar_chrome ;;
+                3) instalar_brave; instalar_chrome ;;
+                *) echo "Opção inválida." ;;
+            esac
+            ;;
+        4) instalar_vscode ;;
+        5) instalar_ohmyzsh ;;
+        6) instalar_docker ;;
+        7) instalar_java ;;
+        8) instalar_node ;;
+        9) instalar_virtualenvwrapper ;;
+        10) instalar_flatpak_apps ;;
+        11) instalar_gnome_tweaks ;;
+        12) configurar_powerlevel10k ;;
+        13)
+            echo "⚠️ Instalando TODOS os componentes..."
+            atualizar_sistema
+            instalar_pacotes_base
+            instalar_brave
+            instalar_chrome
+            instalar_vscode
+            instalar_ohmyzsh
+            instalar_docker
+            instalar_java
+            instalar_node
+            instalar_virtualenvwrapper
+            instalar_flatpak_apps
+            instalar_gnome_tweaks
+            configurar_powerlevel10k
+            echo "✅ TODOS os componentes instalados!"
+            ;;
+        0) echo "Saindo..."; exit 0 ;;
+        *) echo "Opção inválida. Tente novamente." ;;
+    esac
+    
+    read -rp "Pressione Enter para continuar..."
+done

@@ -8,68 +8,95 @@ if ! grep -qi "fedora" /etc/os-release; then
     exit 1
 fi
 
-# Função 1: Instalação base e ZSH
-instalacao_basica() {
-    echo "[0/12] Atualizando sistema..."
+# Funções de instalação individuais
+atualizar_sistema() {
+    echo "🔄 Atualizando sistema..."
     sudo dnf update -y
+    echo "✅ Sistema atualizado!"
+}
 
-    echo "[1/12] Instalando pacotes base..."
+instalar_pacotes_base() {
+    echo "📦 Instalando pacotes base (git, wget, curl, etc)..."
     sudo dnf install -y zsh git wget curl python3-pip dnf-plugins-core
     git config --global user.name "Paulo Roberto Menezes"
     git config --global user.email paulomenezes.web@gmail.com
     git config --global init.defaultBranch main
+    echo "✅ Pacotes base instalados!"
+}
 
-    echo "Instalando Brave Browser"
-    curl -fsS https://dl.brave.com/install.sh | sh
+instalar_brave() {
+    echo "🦁 Instalando Brave Browser..."
+    sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
+    sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
+    sudo dnf install -y brave-browser
+    echo "✅ Brave instalado!"
+}
 
-    echo "[2/12] Habilitando repositório do Google Chrome..."
+instalar_chrome() {
+    echo "🌐 Instalando Google Chrome..."
     sudo dnf install -y https://dl.google.com/linux/direct/google-chrome-stable_current_x86_64.rpm
+    echo "✅ Chrome instalado!"
+}
 
-    echo "[3/12] Instalando VS Code (via repositório oficial)..."
+instalar_vscode() {
+    echo "💻 Instalando VS Code..."
     sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
     sudo sh -c 'echo -e "[code]\nname=Visual Studio Code\nbaseurl=https://packages.microsoft.com/yumrepos/vscode\nenabled=1\ngpgcheck=1\ngpgkey=https://packages.microsoft.com/keys/microsoft.asc" > /etc/yum.repos.d/vscode.repo'
     sudo dnf install -y code
+    echo "✅ VS Code instalado!"
+}
 
-    echo "[4/12] Instalando Oh My Zsh..."
+instalar_ohmyzsh() {
+    echo "🐚 Instalando Oh My Zsh..."
     if [ "$SHELL" != "/bin/zsh" ]; then
         chsh -s /bin/zsh
     fi
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
         echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
-        zsh
     else
-        echo "Oh My Zsh já está instalado."
+        echo "ℹ️ Oh My Zsh já está instalado."
     fi
+    echo "✅ Oh My Zsh configurado!"
 }
 
-# Função 2: Desenvolvimento e apps
-instalacao_desenvolvimento() {
-    echo "[5/12] Instalando Docker..."
+instalar_docker() {
+    echo "🐳 Instalando Docker..."
     sudo dnf install -y docker
     sudo systemctl enable --now docker
     sudo usermod -aG docker "$USER"
     echo "⚠️ Adicionado '$USER' ao grupo docker. Reinicie a sessão para aplicar."
+    echo "✅ Docker instalado!"
+}
 
-    echo "[6/12] Instalando SDKMAN e Java 21 Azul Zulu..."
+instalar_java() {
+    echo "☕ Instalando SDKMAN e Java 21 Azul Zulu..."
     if [ ! -d "$HOME/.sdkman" ]; then
         curl -s "https://get.sdkman.io" | bash
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
+    else
+        source "$HOME/.sdkman/bin/sdkman-init.sh"
     fi
-    source "$HOME/.sdkman/bin/sdkman-init.sh"
     sdk install java 21.0.6-zulu
+    echo "✅ Java instalado via SDKMAN!"
+}
 
-    echo "[7/12] Instalando NVM e Node.js LTS..."
+instalar_node() {
+    echo "🟢 Instalando NVM e Node.js LTS..."
     if [ ! -d "$HOME/.nvm" ]; then
         curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
     fi
     export NVM_DIR="$HOME/.nvm"
-    source "$NVM_DIR/nvm.sh"
+    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
     nvm install --lts
+    echo "✅ Node.js instalado via NVM!"
+}
 
-    echo "[8/12] Instalando virtualenvwrapper via pip..."
+instalar_virtualenvwrapper() {
+    echo "🐍 Instalando virtualenvwrapper..."
     pip3 install --user virtualenvwrapper
-
-    echo "[9/12] Configurando virtualenvwrapper no .zshrc..."
+    
+    echo "📝 Configurando virtualenvwrapper no .zshrc..."
     VENV_CONFIG="
 # Virtualenvwrapper config
 export WORKON_HOME=\$HOME/.virtualenvs
@@ -78,49 +105,161 @@ source \$HOME/.local/bin/virtualenvwrapper.sh
 "
     if ! grep -q "virtualenvwrapper.sh" ~/.zshrc; then
         echo "$VENV_CONFIG" >> ~/.zshrc
-        echo "✅ virtualenvwrapper configurado no ~/.zshrc"
-    else
-        echo "ℹ️ virtualenvwrapper já configurado no ~/.zshrc"
     fi
-
-    echo "[10/12] Instalando Flatpak e repositório Flathub..."
-    sudo dnf install -y flatpak
-    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-    sudo dnf install -y gnome-tweaks gnome-extensions-app
-
-    echo "[11/12] Instalando apps via Flatpak..."
-    flatpak install -y flathub \
-      io.github.getnf.embellish \
-      com.rtosta.zapzap \
-      com.obsproject.Studio \
-      org.duckstation.DuckStation \
-      org.ppsspp.PPSSPP \
-      com.heroicgameslauncher.hgl \
-      net.lutris.Lutris \
-      net.pcsx2.PCSX2 \
-      com.discordapp.Discord \
-      org.telegram.desktop \
-      com.getpostman.Postman \
-      io.dbeaver.DBeaverCommunity \
-      org.gnome.meld \
-      io.httpie.Httpie
-
-    echo "✅ Configurações de desenvolvimento e apps concluídas!"
-    echo "🔁 Reinicie sua sessão para aplicar Docker, virtualenvwrapper, e SDKs."
+    echo "✅ virtualenvwrapper instalado e configurado!"
 }
 
-# Menu interativo
+instalar_flatpak_apps() {
+    echo "📦 Instalando Flatpak e repositório Flathub..."
+    sudo dnf install -y flatpak
+    sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+    # Lista de aplicativos Flatpak
+    local apps=(
+        "io.github.getnf.embellish"
+        "com.rtosta.zapzap"
+        "com.obsproject.Studio"
+        "org.duckstation.DuckStation"
+        "org.ppsspp.PPSSPP"
+        "com.heroicgameslauncher.hgl"
+        "net.lutris.Lutris"
+        "net.pcsx2.PCSX2"
+        "com.discordapp.Discord"
+        "org.telegram.desktop"
+        "com.getpostman.Postman"
+        "io.dbeaver.DBeaverCommunity"
+        "org.gnome.meld"
+        "io.httpie.Httpie"
+    )
+
+    echo "🔄 Instalando apps via Flatpak (um por um)..."
+    for app in "${apps[@]}"; do
+        echo -e "\n🔍 Instalando $app..."
+        if flatpak install -y flathub "$app"; then
+            echo "✅ $app instalado com sucesso!"
+        else
+            echo "⚠️ Falha ao instalar $app"
+        fi
+    done
+
+    echo -e "\n✅ Todos os apps Flatpak foram processados!"
+}
+
+instalar_gnome_tweaks() {
+    echo "🎨 Instalando GNOME Tweaks..."
+    sudo dnf install -y gnome-tweaks gnome-extensions-app
+    echo "✅ GNOME Tweaks instalado!"
+}
+
+configurar_powerlevel10k() {
+    echo "🎨 Configurando Powerlevel10k (estilo Manjaro)..."
+    
+    # Instala o Powerlevel10k (via Oh My Zsh)
+    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    fi
+
+    # Define o tema no .zshrc
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+
+    # Configuração automática (sem wizard)
+    cat > ~/.p10k.zsh << 'EOL'
+# Config pré-definida (estilo Manjaro simplificado)
+if [[ -o interactive ]]; then
+    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
+
+    # Prompt style (Rainbow = similar ao Manjaro)
+    typeset -g POWERLEVEL9K_MODE=nerdfont-complete
+    typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+    typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs)
+    typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status time)
+    typeset -g POWERLEVEL9K_COLOR_SCHEME=dark
+    typeset -g POWERLEVEL9K_DIR_FOREGROUND=15
+    typeset -g POWERLEVEL9K_VCS_MODIFIED_BACKGROUND=red
+    typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=yellow
+    typeset -g POWERLEVEL9K_TIME_FORMAT="%D{%H:%M}"
+fi
+EOL
+
+    # Baixa e instala a fonte Meslo Nerd Font
+    echo "📖 Instalando Meslo Nerd Font..."
+    mkdir -p ~/.local/share/fonts
+    cd ~/.local/share/fonts
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
+    fc-cache -f -v > /dev/null
+
+    echo "✅ Powerlevel10k configurado! Reinicie o terminal."
+}
+
+# Menu interativo completo
 while true; do
-    echo -e "\n===== Menu de Instalação Fedora ====="
-    echo "1) Instalação Básica (ZSH, Brave, Chrome, VSCode, Oh My Zsh)"
-    echo "2) Instalação para Desenvolvimento (Docker, SDKMAN, NVM, Flatpak, etc)"
+    clear
+    echo -e "\n===== MENU DE INSTALAÇÃO FEDORA ====="
+    echo "1) Atualizar sistema"
+    echo "2) Instalar pacotes base (git, wget, curl, etc)"
+    echo "3) Instalar navegadores"
+    echo "4) Instalar VS Code"
+    echo "5) Instalar Oh My Zsh"
+    echo "6) Instalar Docker"
+    echo "7) Instalar Java (via SDKMAN)"
+    echo "8) Instalar Node.js (via NVM)"
+    echo "9) Instalar Python virtualenvwrapper"
+    echo "10) Instalar Flatpak e apps"
+    echo "11) Instalar GNOME Tweaks"
+    echo "12) Configurar Powerlevel10k (estilo Manjaro automático)"
+    echo "13) Instalar TUDO (executa todas as opções acima)"
     echo "0) Sair"
-    read -rp "Escolha uma opção: " opcao
+    echo "--------------------------------------"
+    read -rp "Escolha uma opção (0-12): " opcao
 
     case $opcao in
-        1) instalacao_basica ;;
-        2) instalacao_desenvolvimento ;;
-        0) echo "Saindo..."; break ;;
+        1) atualizar_sistema ;;
+        2) instalar_pacotes_base ;;
+        3) 
+            echo -e "\n--- NAVEGADORES ---"
+            echo "1) Brave Browser"
+            echo "2) Google Chrome"
+            echo "3) Ambos"
+            read -rp "Escolha (1-3): " nav_opcao
+            case $nav_opcao in
+                1) instalar_brave ;;
+                2) instalar_chrome ;;
+                3) instalar_brave; instalar_chrome ;;
+                *) echo "Opção inválida." ;;
+            esac
+            ;;
+        4) instalar_vscode ;;
+        5) instalar_ohmyzsh ;;
+        6) instalar_docker ;;
+        7) instalar_java ;;
+        8) instalar_node ;;
+        9) instalar_virtualenvwrapper ;;
+        10) instalar_flatpak_apps ;;
+        11) instalar_gnome_tweaks ;;
+        12) configurar_powerlevel10k ;;
+        13)
+            echo "⚠️ Instalando TODOS os componentes..."
+            atualizar_sistema
+            instalar_pacotes_base
+            instalar_brave
+            instalar_chrome
+            instalar_vscode
+            instalar_ohmyzsh
+            instalar_docker
+            instalar_java
+            instalar_node
+            instalar_virtualenvwrapper
+            instalar_flatpak_apps
+            instalar_gnome_tweaks
+            configurar_powerlevel10k
+            echo "✅ TODOS os componentes instalados!"
+            ;;
+        0) echo "Saindo..."; exit 0 ;;
         *) echo "Opção inválida. Tente novamente." ;;
     esac
+    
+    read -rp "Pressione Enter para continuar..."
 done
