@@ -11,13 +11,13 @@ fi
 # Funções de instalação individuais
 atualizar_sistema() {
     echo "🔄 Atualizando sistema..."
-    sudo dnf update -y
+    sudo dnf upgrade -y
     echo "✅ Sistema atualizado!"
 }
 
 instalar_pacotes_base() {
     echo "📦 Instalando pacotes base (git, wget, curl, etc)..."
-    sudo dnf install -y zsh git wget curl python3-pip dnf-plugins-core
+    sudo dnf install -y zsh git wget curl python3-pip dnf-plugins-core powerline-fonts
     git config --global user.name "Paulo Roberto Menezes"
     git config --global user.email paulomenezes.web@gmail.com
     git config --global init.defaultBranch main
@@ -46,27 +46,102 @@ instalar_vscode() {
     echo "✅ VS Code instalado!"
 }
 
+configurar_p10k_automatico() {
+    # Verifica se o Oh My Zsh está instalado
+    if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        echo "❌ Oh My Zsh não está instalado. Por favor, instale primeiro usando a opção 5."
+        read -rp "Pressione Enter para voltar ao menu..."
+        return 1
+    fi
+
+    echo "🎨 Configurando Powerlevel10k automaticamente..."
+    
+    # Instala o Powerlevel10k
+    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
+    fi
+
+    # Configura o tema
+    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
+
+    # Cria configuração automática
+    cat > ~/.p10k.zsh << 'EOL'
+# Desativa o wizard
+typeset -g POWERLEVEL9K_DISABLE_CONFIGURATION_WIZARD=true
+
+# Configuração estilo Manjaro
+if [[ -o interactive ]]; then
+    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
+
+    # Estilo do prompt
+    typeset -g POWERLEVEL9K_MODE=nerdfont-complete
+    typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
+    typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs)
+    typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status time)
+    typeset -g POWERLEVEL9K_COLOR_SCHEME=dark
+    typeset -g POWERLEVEL9K_DIR_FOREGROUND=15
+    typeset -g POWERLEVEL9K_VCS_MODIFIED_BACKGROUND=red
+    typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=yellow
+    typeset -g POWERLEVEL9K_TIME_FORMAT="%D{%H:%M}"
+fi
+EOL
+
+    # Instala fontes Meslo Nerd Font
+    echo "📖 Instalando fontes Meslo Nerd Font..."
+    mkdir -p ~/.local/share/fonts
+    cd ~/.local/share/fonts
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf"
+    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
+    fc-cache -f -v > /dev/null
+
+    echo "✅ Powerlevel10k configurado automaticamente!"
+    echo "⚠️ Reinicie o terminal ou execute 'zsh' para aplicar as mudanças."
+    read -rp "Pressione Enter para voltar ao menu..."
+}
+
 instalar_ohmyzsh() {
     echo "🐚 Instalando Oh My Zsh..."
+    
+    # Pergunta se deseja instalar o Powerlevel10k
+    read -rp "Deseja instalar e configurar o Powerlevel10k automaticamente? [s/N]: " instalar_p10k
+    
     if [ "$SHELL" != "/bin/zsh" ]; then
         chsh -s /bin/zsh
     fi
+    
     if [ ! -d "$HOME/.oh-my-zsh" ]; then
+        # Instalação não interativa do Oh My Zsh
         sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-        echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar o Zsh."
+        
+        # Configura o Powerlevel10k se escolhido
+        if [[ "$instalar_p10k" =~ ^[sS]$ ]]; then
+            configurar_p10k_automatico
+        else
+            echo "ℹ️ Powerlevel10k não foi configurado. Você pode configurá-lo depois com a opção 12."
+        fi
+        
+        echo "⚠️ Reinicie o terminal ou rode 'zsh' para aplicar as mudanças."
     else
         echo "ℹ️ Oh My Zsh já está instalado."
+        if [[ "$instalar_p10k" =~ ^[sS]$ ]]; then
+            configurar_p10k_automatico
+        fi
     fi
+    
     echo "✅ Oh My Zsh configurado!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_docker() {
     echo "🐳 Instalando Docker..."
-    sudo dnf install -y docker
+    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     sudo systemctl enable --now docker
     sudo usermod -aG docker "$USER"
     echo "⚠️ Adicionado '$USER' ao grupo docker. Reinicie a sessão para aplicar."
     echo "✅ Docker instalado!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_java() {
@@ -79,6 +154,7 @@ instalar_java() {
     fi
     sdk install java 21.0.6-zulu
     echo "✅ Java instalado via SDKMAN!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_node() {
@@ -90,6 +166,7 @@ instalar_node() {
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
     nvm install --lts
     echo "✅ Node.js instalado via NVM!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_virtualenvwrapper() {
@@ -107,6 +184,7 @@ source \$HOME/.local/bin/virtualenvwrapper.sh
         echo "$VENV_CONFIG" >> ~/.zshrc
     fi
     echo "✅ virtualenvwrapper instalado e configurado!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_flatpak_apps() {
@@ -143,55 +221,14 @@ instalar_flatpak_apps() {
     done
 
     echo -e "\n✅ Todos os apps Flatpak foram processados!"
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 instalar_gnome_tweaks() {
     echo "🎨 Instalando GNOME Tweaks..."
     sudo dnf install -y gnome-tweaks gnome-extensions-app
     echo "✅ GNOME Tweaks instalado!"
-}
-
-configurar_powerlevel10k() {
-    echo "🎨 Configurando Powerlevel10k (estilo Manjaro)..."
-    
-    # Instala o Powerlevel10k (via Oh My Zsh)
-    if [ ! -d "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k" ]; then
-        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k"
-    fi
-
-    # Define o tema no .zshrc
-    sed -i 's/^ZSH_THEME=.*/ZSH_THEME="powerlevel10k\/powerlevel10k"/' ~/.zshrc
-
-    # Configuração automática (sem wizard)
-    cat > ~/.p10k.zsh << 'EOL'
-# Config pré-definida (estilo Manjaro simplificado)
-if [[ -o interactive ]]; then
-    source ~/.oh-my-zsh/custom/themes/powerlevel10k/powerlevel10k.zsh-theme
-
-    # Prompt style (Rainbow = similar ao Manjaro)
-    typeset -g POWERLEVEL9K_MODE=nerdfont-complete
-    typeset -g POWERLEVEL9K_PROMPT_ADD_NEWLINE=true
-    typeset -g POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(os_icon dir vcs)
-    typeset -g POWERLEVEL9K_RIGHT_PROMPT_ELEMENTS=(status time)
-    typeset -g POWERLEVEL9K_COLOR_SCHEME=dark
-    typeset -g POWERLEVEL9K_DIR_FOREGROUND=15
-    typeset -g POWERLEVEL9K_VCS_MODIFIED_BACKGROUND=red
-    typeset -g POWERLEVEL9K_VCS_UNTRACKED_BACKGROUND=yellow
-    typeset -g POWERLEVEL9K_TIME_FORMAT="%D{%H:%M}"
-fi
-EOL
-
-    # Baixa e instala a fonte Meslo Nerd Font
-    echo "📖 Instalando Meslo Nerd Font..."
-    mkdir -p ~/.local/share/fonts
-    cd ~/.local/share/fonts
-    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf"
-    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf"
-    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf"
-    curl -fsSL -O "https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf"
-    fc-cache -f -v > /dev/null
-
-    echo "✅ Powerlevel10k configurado! Reinicie o terminal."
+    read -rp "Pressione Enter para voltar ao menu..."
 }
 
 # Menu interativo completo
@@ -202,18 +239,18 @@ while true; do
     echo "2) Instalar pacotes base (git, wget, curl, etc)"
     echo "3) Instalar navegadores"
     echo "4) Instalar VS Code"
-    echo "5) Instalar Oh My Zsh"
+    echo "5) Instalar Oh My Zsh (com opção de Powerlevel10k)"
     echo "6) Instalar Docker"
     echo "7) Instalar Java (via SDKMAN)"
     echo "8) Instalar Node.js (via NVM)"
     echo "9) Instalar Python virtualenvwrapper"
     echo "10) Instalar Flatpak e apps"
     echo "11) Instalar GNOME Tweaks"
-    echo "12) Configurar Powerlevel10k (estilo Manjaro automático)"
-    echo "13) Instalar TUDO (executa todas as opções acima)"
+    echo "12) Configurar Powerlevel10k (requer Oh My Zsh)"
+    echo "13) Instalar TUDO (exceto Powerlevel10k)"
     echo "0) Sair"
     echo "--------------------------------------"
-    read -rp "Escolha uma opção (0-12): " opcao
+    read -rp "Escolha uma opção (0-13): " opcao
 
     case $opcao in
         1) atualizar_sistema ;;
@@ -239,27 +276,28 @@ while true; do
         9) instalar_virtualenvwrapper ;;
         10) instalar_flatpak_apps ;;
         11) instalar_gnome_tweaks ;;
-        12) configurar_powerlevel10k ;;
+        12) configurar_p10k_automatico ;;
         13)
-            echo "⚠️ Instalando TODOS os componentes..."
+            echo "⚠️ Instalando TODOS os componentes (exceto Powerlevel10k)..."
             atualizar_sistema
             instalar_pacotes_base
             instalar_brave
             instalar_chrome
             instalar_vscode
-            instalar_ohmyzsh
+            instalar_ohmyzsh  # O usuário será perguntado sobre o Powerlevel10k aqui
             instalar_docker
             instalar_java
             instalar_node
             instalar_virtualenvwrapper
             instalar_flatpak_apps
             instalar_gnome_tweaks
-            configurar_powerlevel10k
             echo "✅ TODOS os componentes instalados!"
+            read -rp "Pressione Enter para voltar ao menu..."
             ;;
         0) echo "Saindo..."; exit 0 ;;
-        *) echo "Opção inválida. Tente novamente." ;;
+        *) 
+            echo "Opção inválida. Tente novamente."
+            read -rp "Pressione Enter para continuar..."
+            ;;
     esac
-    
-    read -rp "Pressione Enter para continuar..."
 done
