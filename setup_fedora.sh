@@ -26,9 +26,7 @@ instalar_pacotes_base() {
 
 instalar_brave() {
     echo "🦁 Instalando Brave Browser..."
-    sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-    sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-    sudo dnf install -y brave-browser
+    curl -fsS https://dl.brave.com/install.sh | sh
     echo "✅ Brave instalado!"
 }
 
@@ -136,11 +134,29 @@ instalar_ohmyzsh() {
 
 instalar_docker() {
     echo "🐳 Instalando Docker..."
-    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    sudo dnf remove docker \
+            docker-client \
+            docker-client-latest \
+            docker-common \
+            docker-latest \
+            docker-latest-logrotate \
+            docker-logrotate \
+            docker-selinux \
+            docker-engine-selinux \
+            docker-engine
+    sudo dnf -y install dnf-plugins-core
+    sudo dnf-3 config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+
+    sudo dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+    # Configurar e iniciar serviço
+    echo "🔄 Configurando serviço Docker..."
     sudo systemctl enable --now docker
     sudo usermod -aG docker "$USER"
+    
     echo "⚠️ Adicionado '$USER' ao grupo docker. Reinicie a sessão para aplicar."
-    echo "✅ Docker instalado!"
+    echo "✅ Docker instalado com sucesso!"
     read -rp "Pressione Enter para voltar ao menu..."
 }
 
@@ -171,6 +187,7 @@ instalar_node() {
 
 instalar_virtualenvwrapper() {
     echo "🐍 Instalando virtualenvwrapper..."
+    pip3 install --user virtualenv
     pip3 install --user virtualenvwrapper
     
     echo "📝 Configurando virtualenvwrapper no .zshrc..."
